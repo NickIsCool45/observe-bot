@@ -1,0 +1,20 @@
+# Secrets and local overrides
+.env
+config/rules.local.json
+config/agents.local.json
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+
+# Desk runtime output
+desk/paper-ledger.csv
+desk/decision-cards.md
+desk/dashboard.html
+desk/run.log
+
+# OS
+.DS_Store

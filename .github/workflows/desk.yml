@@ -1,0 +1,42 @@
+name: Trading Desk
+
+on:
+  schedule:
+    # Scout: 9:00 AM Eastern weekday
+    - cron: '0 13 * * 1-5'  # Coordinated to 9 AM ET
+    # Chief cards: 11:00 AM Eastern weekday
+    - cron: '0 15 * * 1-5'  # Coordinated to 11 AM ET
+    # Chief evening report: 4:30 PM Eastern weekday
+    - cron: '0 20:30 * * 1-5'
+
+  workflow_dispatch:  # Allow manual trigger
+
+jobs:
+  desk:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+
+      - name: Run trading desk
+        env:
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+        run: |
+          python src/runner.py
+
+      - name: Upload desk outputs
+        uses: actions/upload-artifact@v4
+        with:
+          name: desk
+          path: desk/
+          retention-days: 30

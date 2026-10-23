@@ -1,0 +1,21 @@
+{
+  "mode": "PAPER ONLY",
+  "paper_balance": 10000,
+  "watchlist": ["NVDA", "AAPL", "MSFT", "AMD", "META", "TSLA", "SPY", "BTC", "ETH"],
+  "max_size_pct": 5,
+  "max_loss_pct": 1,
+  "daily_loss_limit_pct": 2,
+  "cards_per_day": 3,
+  "always_skip": ["memecoins", "coins less than 30 days old", "stocks under $5", "anything without a real source"],
+  "timezone": "America/New_York",
+  "scout": {
+    "min_volume_multiple": 2,
+    "min_move_pct": 3,
+    "max_leads_per_day": 5
+  },
+  "crypto": {
+    "symbols": ["BTC", "ETH", "SOL", "AVAX", "DOGE", "XRP", "LINK", "ADA"],
+    "min_book_depth_usd": 100000
+  },
+  "notes": "Copy to rules.local.json and edit. Only the human can change this file."
+}

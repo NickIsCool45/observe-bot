@@ -7,7 +7,7 @@ on:
     # Chief cards: 11:00 AM Eastern weekday
     - cron: '0 15 * * 1-5'  # Coordinated to 11 AM ET
     # Chief evening report: 4:30 PM Eastern weekday
-    - cron: '0 20:30 * * 1-5'
+    - cron: '30 20 * * 1-5'  # 20:30 UTC = 4:30 PM ET
 
   workflow_dispatch:  # Allow manual trigger
 

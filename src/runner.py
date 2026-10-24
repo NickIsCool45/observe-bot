@@ -153,71 +153,10 @@ def scout_runs_desk(rules: dict, agents_config: dict) -> None:
     client = make_openai_client()
 
     if not client:
-        print("\n[INFO] No OpenRouter client - running in demo mode")
-        # Run demo mode
-        print("\n[Scout] Running scout to find leads...")
-        scout_prompt = scout.build_user_message()
-        print(f"Scout command:\n{scout_prompt}\n")
-        print("[Demo] Scout output would appear here:")
-        demo_lead = {
-            "id": "#L001",
-            "ticker": "NVDA",
-            "price": "$180.23",
-            "move": 4.2,
-            "volume": 3.1,
-            "link": "finance.yahoo.com/portfolio?p=NVDA"
-        }
-        print(f"#L001 - NVDA - $180.23 - +4.2% - 3.1x - https://finance.yahoo.com/portfolio?p=NVDA")
-
-        print("\n[News] Report on lead L001:")
-        news_prompt = news.build_user_message(lead_id="L001", ticker="NVDA")
-        print(f"News command:\n{news_prompt}\n")
-
-        print("[News] Report would show: REPORTED (earnings, filings), UNVERIFIED (rumors)\n")
-
-        print("\n[Sentiment] Mood, score, reasons, hype check for NVDA:")
-        sentiment_prompt = sentiment.build_user_message(lead_id="L001", ticker="NVDA")
-        print(f"Sentiment command:\n{sentiment_prompt}\n")
-
-        print("[Sentiment] Report would show: mood, -100 to 100 score, top reasons, hype\n")
-
-        print("\n[Charts] Trend, support, resistance, entry, stop, target:")
-        charts_prompt = charts.build_user_message(lead_id="L001", ticker="NVDA")
-        print(f"Charts command:\n{charts_prompt}\n")
-
-        print("[Charts] Report would show: daily/trend, support/resistance, entries, strike\n")
-
-        print(f"\n[Skeptic] Validate lead {demo_lead['id']} ({demo_lead['ticker']}):")
-        # Wrap in dict for safety
-        skeptic_lead_data = demo_lead.copy()
-        skeptic_prompt = skeptic.build_user_message(lead=skeptic_lead_data, min_move=3)
-        print(f"Skeptic command:\n{skeptic_prompt}\n")
-
-        print("[Skeptic] Verdict: APPROVE/REDUCE/REJECT with reasons\n")
-
-        print("\n[Chief] Collecting reports and sending decision cards:")
-        chief_prompt = chief.build_user_message()
-        print(f"Chief command:\n{chief_prompt}\n")
-
-        print("\n[Chief] Decision card would look like:\n")
-        print("#L001 - NVDA - PAPER BUY\n")
-        print("Entry: $178.50 (10:30 AM ET)\n")
-        print("Stop: $176.30 (1.2% risk)\n")
-        print("Target: $190.50 (RR 2.5:1)\n")
-        print("Three strongest reasons:\n")
-        print("1. Earnings beat consensus with +15% revenue growth\n")
-        print("2. Strong AI adoption driving GPU demand\n")
-        print("3. Analysts raised price targets across the board\n")
-        print("Biggest risk:\n")
-        print("- US export controls on AI chips remain uncertain\n")
-        print("What would prove it wrong:\n")
-        print("- Failed to meet guidance on capital spending or margins\n")
-
-        print("\n" + "=" * 60)
-        print("DEMO COMPLETE")
-        print("\nTo run the full desk with OpenRouter, set OPENROUTER_API_KEY in your environment.")
-        print("=" * 60)
-        return
+        print("\n[ERROR] OPENROUTER_API_KEY not set. This is required for the trading desk to run.")
+        print("In GitHub Actions, ensure OPENROUTER_API_KEY secret is configured.")
+        print("Locally, export OPENROUTER_API_KEY or create a .env file.")
+        sys.exit(1)
 
     # === REAL API CALLS ===
 

@@ -26,11 +26,11 @@ class Scout(Bot):
         return (
             "Use this command in the group to trigger scouting:\n"
             f"@Scout scan this watchlist: {', '.join(self.watchlist)}\n"
-            "Look for unusual volume (at least 2x 30-day avg) or price moves of {min_move}%% or more. "
+            f"Look for unusual volume (at least 2x 30-day avg) or price moves of {self.MIN_MOVE_PCT}% or more. "
             f"Post at most 5 leads a day, best first. "
-            "Format: #L{id} - {ticker} - {price} - {move}%% - {volume}x - {link}\n\n"
+            f"Format: #L{{id}} - {{ticker}} - {{price}} - {{move}}% - {{volume}}x - {{link}}\n\n"
             "If nothing qualifies, post nothing. Don't trade."
-        ).format(min_move=self.MIN_MOVE_PCT)
+        )
 
     def parse_response(self, content: str) -> Any:
         """Parse Scout's leads"""

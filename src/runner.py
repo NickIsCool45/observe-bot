@@ -176,7 +176,9 @@ def scout_runs_desk(rules: dict, agents_config: dict) -> None:
 
     # Skeptic verdict
     print(f"\n[Skeptic] Validate lead {demo_lead['id']} ({demo_lead['ticker']}):")
-    skeptic_prompt = skeptic.build_user_message(lead=demo_lead, min_move=3)
+    # Wrap in dict for safety
+    skeptic_lead_data = demo_lead.copy()
+    skeptic_prompt = skeptic.build_user_message(lead=skeptic_lead_data, min_move=3)
     print(f"Skeptic command:\n{skeptic_prompt}\n")
 
     print("[Skeptic] Verdict: APPROVE/REDUCE/REJECT with reasons\n")

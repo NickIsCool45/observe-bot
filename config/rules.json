@@ -1,6 +1,6 @@
 {
   "mode": "PAPER ONLY",
-  "paper_balance": 10000,
+  "paper_balance": 80,
   "watchlist": ["NVDA", "AAPL", "MSFT", "AMD", "META", "TSLA", "SPY", "BTC", "ETH"],
   "max_size_pct": 5,
   "max_loss_pct": 1,

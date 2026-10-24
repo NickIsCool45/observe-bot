@@ -201,9 +201,18 @@ def scout_runs_desk(rules: dict, agents_config: dict) -> None:
             print(f"  {lead['id']} - {lead['ticker']} - {lead['price']} - +{lead['move']:.1f}% - {lead['volume']}")
 
     if not scout_leads:
-        print("[Scout] No leads found matching the criteria. Moving to card generation with empty ledger.")
-        # Still proceed to chief for any existing leads in ledger
-        scout_leads = [{"id": "#L000", "ticker": "N/A", "price": "0", "move": 0, "volume": 0}]
+        print("[Scout] No leads found matching the criteria. Skipping downstream bots.")
+        # Write empty decision cards
+        desk_dir = Path(desk_paths.get("desk_dir", "desk"))
+        cards_path = desk_dir / "decision-cards.md"
+        with open(cards_path, "w") as f:
+            f.write("# Trading Desk Decision Cards\n\n")
+            f.write("No leads found this cycle. Keep monitoring.\n")
+        print("\n" + "=" * 60)
+        print("RUN COMPLETE")
+        print(f"Decision cards written to: desk/decision-cards.md")
+        print("=" * 60)
+        return
 
     # Step 2-5: For each lead, get reports from News, Sentiment, Charts
     all_lead_data = []
@@ -361,7 +370,7 @@ def scout_runs_desk(rules: dict, agents_config: dict) -> None:
                         f"{card['ticker']},BUY,{card['charts_data'].get('entry', 'N/A')},"
                         f"{card['charts_data'].get('stop', 'N/A')},{card['charts_data'].get('target', 'N/A')},"
                         f"{rules_config.get('paper_balance', 10000) * rules_config.get('max_size_pct', 5) / 100:.2f},"
-                        f"open,{','.join,''},0,Paper trade\n")
+                        f"open,,0,Paper trade\n")
 
     print("\n" + "=" * 60)
     print("RUN COMPLETE")

@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
-"""Run the six-bot trading desk"""
+"""Run the six-bot trading desk via OpenRouter API"""
 
 import os
 import sys
 import json
+import time
 from pathlib import Path
 from datetime import datetime
 
@@ -18,12 +19,10 @@ from src.bots.sentiment import Sentiment
 from src.bots.charts import Charts
 from src.bots.skeptic import Skeptic
 
-# Optional import for OpenRouter
 try:
     from openai import OpenAI
 except ImportError:
     OpenAI = None
-
 
 
 def load_rules() -> dict:
@@ -61,10 +60,17 @@ def setup_desk_directories() -> dict:
         with open(ledger_path, "w") as f:
             f.write("date,lead_id,ticker,side,entry,stop,target,size,status,exit,pnl,note\n")
 
+    # Run log
+    run_log = desk_dir / "run.log"
+    if not run_log.exists():
+        with open(run_log, "w") as f:
+            f.write(f"# Trading Desk Run Log\nStarted: {datetime.now().isoformat()}\n\n")
+
     return {
         "rules_path": str(rules_path),
         "ledger_path": str(ledger_path),
-        "desk_dir": str(desk_dir)
+        "desk_dir": str(desk_dir),
+        "run_log": str(run_log)
     }
 
 
@@ -86,6 +92,24 @@ def make_openai_client(api_key: str = None):
         base_url="https://openrouter.ai/api/v1",
         api_key=api_key
     )
+
+
+def call_openrouter(client: OpenAI, model: str, system_prompt: str, user_prompt: str, temperature: float = 0.2, max_tokens: int = 1000) -> str:
+    """Make a single OpenRouter API call"""
+    messages = [
+        {"role": "system", "content": system_prompt},
+        {"role": "user", "content": user_prompt}
+    ]
+    try:
+        response = client.chat.completions.create(
+            model=model,
+            messages=messages,
+            temperature=temperature,
+            max_tokens=max_tokens
+        )
+        return response.choices[0].message.content or ""
+    except Exception as e:
+        return f"[ERROR calling {model}: {str(e)[:100]}]"
 
 
 def scout_runs_desk(rules: dict, agents_config: dict) -> None:
@@ -128,84 +152,283 @@ def scout_runs_desk(rules: dict, agents_config: dict) -> None:
     print("\n[Setup] Loading OpenRouter API key...")
     client = make_openai_client()
 
-    # Prompt approach (for demo/paper mode)
+    if not client:
+        print("\n[INFO] No OpenRouter client - running in demo mode")
+        # Run demo mode
+        print("\n[Scout] Running scout to find leads...")
+        scout_prompt = scout.build_user_message()
+        print(f"Scout command:\n{scout_prompt}\n")
+        print("[Demo] Scout output would appear here:")
+        demo_lead = {
+            "id": "#L001",
+            "ticker": "NVDA",
+            "price": "$180.23",
+            "move": 4.2,
+            "volume": 3.1,
+            "link": "finance.yahoo.com/portfolio?p=NVDA"
+        }
+        print(f"#L001 - NVDA - $180.23 - +4.2% - 3.1x - https://finance.yahoo.com/portfolio?p=NVDA")
+
+        print("\n[News] Report on lead L001:")
+        news_prompt = news.build_user_message(lead_id="L001", ticker="NVDA")
+        print(f"News command:\n{news_prompt}\n")
+
+        print("[News] Report would show: REPORTED (earnings, filings), UNVERIFIED (rumors)\n")
+
+        print("\n[Sentiment] Mood, score, reasons, hype check for NVDA:")
+        sentiment_prompt = sentiment.build_user_message(lead_id="L001", ticker="NVDA")
+        print(f"Sentiment command:\n{sentiment_prompt}\n")
+
+        print("[Sentiment] Report would show: mood, -100 to 100 score, top reasons, hype\n")
+
+        print("\n[Charts] Trend, support, resistance, entry, stop, target:")
+        charts_prompt = charts.build_user_message(lead_id="L001", ticker="NVDA")
+        print(f"Charts command:\n{charts_prompt}\n")
+
+        print("[Charts] Report would show: daily/trend, support/resistance, entries, strike\n")
+
+        print(f"\n[Skeptic] Validate lead {demo_lead['id']} ({demo_lead['ticker']}):")
+        # Wrap in dict for safety
+        skeptic_lead_data = demo_lead.copy()
+        skeptic_prompt = skeptic.build_user_message(lead=skeptic_lead_data, min_move=3)
+        print(f"Skeptic command:\n{skeptic_prompt}\n")
+
+        print("[Skeptic] Verdict: APPROVE/REDUCE/REJECT with reasons\n")
+
+        print("\n[Chief] Collecting reports and sending decision cards:")
+        chief_prompt = chief.build_user_message()
+        print(f"Chief command:\n{chief_prompt}\n")
+
+        print("\n[Chief] Decision card would look like:\n")
+        print("#L001 - NVDA - PAPER BUY\n")
+        print("Entry: $178.50 (10:30 AM ET)\n")
+        print("Stop: $176.30 (1.2% risk)\n")
+        print("Target: $190.50 (RR 2.5:1)\n")
+        print("Three strongest reasons:\n")
+        print("1. Earnings beat consensus with +15% revenue growth\n")
+        print("2. Strong AI adoption driving GPU demand\n")
+        print("3. Analysts raised price targets across the board\n")
+        print("Biggest risk:\n")
+        print("- US export controls on AI chips remain uncertain\n")
+        print("What would prove it wrong:\n")
+        print("- Failed to meet guidance on capital spending or margins\n")
+
+        print("\n" + "=" * 60)
+        print("DEMO COMPLETE")
+        print("\nTo run the full desk with OpenRouter, set OPENROUTER_API_KEY in your environment.")
+        print("=" * 60)
+        return
+
+    # === REAL API CALLS ===
+
+    # Step 1: Scout finds leads
     print("\n[Scout] Running scout to find leads...")
     scout_prompt = scout.build_user_message()
-    print(f"Scout command:\n{scout_prompt}\n")
+    print(f"Scout command sent to model {scout.model}")
 
-    # Uncomment for actual API calls:
-    # scout_messages = [{"role": "user", "content": scout_prompt}]
-    # scout_response = client.chat.completions.create(
-    #     model=scout.model,
-    #     messages=scout_messages,
-    #     temperature=0.2
-    # )
-    # print(f"[Scout] {scout_response.choices[0].message.content}")
+    scout_response = call_openrouter(client, scout.model, "", scout_prompt)
+    print(f"[Scout] Response received ({len(scout_response)} chars)")
 
-    print("[Demo] Scout output would appear here:")
-    demo_lead = {
-        "id": "#L001",
-        "ticker": "NVDA",
-        "price": "$180.23",
-        "move": 4.2,
-        "volume": 3.1,
-        "link": "finance.yahoo.com/portfolio?p=NVDA"
-    }
-    print(f"#L001 - NVDA - $180.23 - +4.2% - 3.1x - https://finance.yahoo.com/portfolio?p=NVDA")
+    # Parse scout's leads
+    # Look for leads in the response - format: #L001 - NVDA - $180.23 - +4.2%
+    scout_leads = []
+    for line in scout_response.split("\n"):
+        line = line.strip()
+        if line.startswith("#L"):
+            parts = [p.strip() for p in line.split(" - ")]
+            if len(parts) >= 4:
+                lead_id = parts[0]
+                ticker = parts[1]
+                price = parts[2]
+                move_str = parts[3].replace("%", "").replace("%%", "")
+                try:
+                    move = float(move_str)
+                except ValueError:
+                    move = 0
+                vol = parts[4] if len(parts) > 4 else "1x"
+                link = parts[5] if len(parts) > 5 else ""
+                scout_leads.append({
+                    "id": lead_id,
+                    "ticker": ticker,
+                    "price": price,
+                    "move": move,
+                    "volume": vol,
+                    "link": link
+                })
 
-    # News report
-    print("\n[News] Report on lead L001:")
-    news_prompt = news.build_user_message(lead_id="L001", ticker="NVDA")
-    print(f"News command:\n{news_prompt}\n")
+    print(f"[Scout] Found {len(scout_leads)} lead(s)")
+    if scout_leads:
+        for lead in scout_leads:
+            print(f"  {lead['id']} - {lead['ticker']} - {lead['price']} - +{lead['move']:.1f}% - {lead['volume']}")
 
-    print("[News] Report would show: REPORTED (earnings, filings), UNVERIFIED (rumors)\n")
+    if not scout_leads:
+        print("[Scout] No leads found matching the criteria. Moving to card generation with empty ledger.")
+        # Still proceed to chief for any existing leads in ledger
+        scout_leads = [{"id": "#L000", "ticker": "N/A", "price": "0", "move": 0, "volume": 0}]
 
-    # Sentiment report
-    print("\n[Sentiment] Mood, score, reasons, hype check for NVDA:")
-    sentiment_prompt = sentiment.build_user_message(lead_id="L001", ticker="NVDA")
-    print(f"Sentiment command:\n{sentiment_prompt}\n")
+    # Step 2-5: For each lead, get reports from News, Sentiment, Charts
+    all_lead_data = []
 
-    print("[Sentiment] Report would show: mood, -100 to 100 score, top reasons, hype\n")
+    for lead in scout_leads[:5]:  # Process up to 5 leads
+        lead_id = lead["id"]
+        ticker = lead["ticker"]
 
-    # Charts report
-    print("\n[Charts] Trend, support, resistance, entry, stop, target:")
-    charts_prompt = charts.build_user_message(lead_id="L001", ticker="NVDA")
-    print(f"Charts command:\n{charts_prompt}\n")
+        print(f"\n=== Processing lead {lead_id} ({ticker}) ===")
 
-    print("[Charts] Report would show: daily/trend, support/resistance, entries, strike\n")
+        # News report
+        print(f"[News] Getting report for {lead_id}...")
+        news_prompt = news.build_user_message(lead_id=lead_id, ticker=ticker)
+        news_response = call_openrouter(client, news.model, "", news_prompt)
+        print(f"[News] Got report")
 
-    # Skeptic verdict
-    print(f"\n[Skeptic] Validate lead {demo_lead['id']} ({demo_lead['ticker']}):")
-    # Wrap in dict for safety
-    skeptic_lead_data = demo_lead.copy()
-    skeptic_prompt = skeptic.build_user_message(lead=skeptic_lead_data, min_move=3)
-    print(f"Skeptic command:\n{skeptic_prompt}\n")
+        # Sentiment report
+        print(f"[Sentiment] Getting report for {lead_id}...")
+        sentiment_prompt = sentiment.build_user_message(lead_id=lead_id, ticker=ticker)
+        sentiment_response = call_openrouter(client, sentiment.model, "", sentiment_prompt)
+        print(f"[Sentiment] Got report")
 
-    print("[Skeptic] Verdict: APPROVE/REDUCE/REJECT with reasons\n")
+        # Charts report
+        print(f"[Charts] Getting report for {lead_id}...")
+        charts_prompt = charts.build_user_message(lead_id=lead_id, ticker=ticker)
+        charts_response = call_openrouter(client, charts.model, "", charts_prompt)
+        print(f"[Charts] Got report")
 
-    # Chief decision cards
-    print("\n[Chief] Collecting reports and sending decision cards:")
-    chief_prompt = chief.build_user_message()
-    print(f"Chief command:\n{chief_prompt}\n")
+        # Parse responses
+        parsed_news = news.parse_response(news_response)
+        parsed_sentiment = sentiment.parse_response(sentiment_response)
+        parsed_charts = charts.parse_response(charts_response)
 
-    print("\n[Chief] Decision card would look like:\n")
-    print("#L001 - NVDA - PAPER BUY\n")
-    print("Entry: $178.50 (10:30 AM ET)\n")
-    print("Stop: $176.30 (1.2% risk)\n")
-    print("Target: $190.50 (RR 2.5:1)\n")
-    print("Three strongest reasons:\n")
-    print("1. Earnings beat consensus with +15% revenue growth\n")
-    print("2. Strong AI adoption driving GPU demand\n")
-    print("3. Analysts raised price targets across the board\n")
-    print("Biggest risk:\n")
-    print("- US export controls on AI chips remain uncertain\n")
-    print("What would prove it wrong:\n")
-    print("- Failed to meet guidance on capital spending or margins\n")
+        # Step 6: Skeptic validates
+        print(f"[Skeptic] Validating lead {lead_id}...")
+        # Build a summary for skeptic
+        skeptic_input = {
+            "id": lead_id,
+            "ticker": ticker,
+            "price": lead.get("price", "0"),
+            "move": lead.get("move", 0),
+            "news": parsed_news.get("reported", [])[:3],
+            "sentiment": {
+                "mood": parsed_sentiment.get("mood", "mixed"),
+                "score": parsed_sentiment.get("score", 0),
+                "reasons": parsed_sentiment.get("reasons", [])[:3]
+            },
+            "charts": {
+                "trend": parsed_charts.get("trend", "neutral"),
+                "support": parsed_charts.get("support"),
+                "resistance": parsed_charts.get("resistance"),
+                "entry": parsed_charts.get("entry"),
+                "stop": parsed_charts.get("stop"),
+                "target": parsed_charts.get("target")
+            }
+        }
+
+        # Get rules info for skeptic
+        max_size = rules_config.get("max_size_pct", 5)
+        max_loss = rules_config.get("max_loss_pct", 1)
+
+        skeptic_prompt = skeptic.build_user_message(lead=skeptic_input, min_move=3)
+        skeptic_response = call_openrouter(client, skeptic.model, "", skeptic_prompt)
+        parsed_skeptic = skeptic.parse_response(skeptic_response)
+        verdict = parsed_skeptic.get("verdict", "SKIP")
+        reasons = parsed_skeptic.get("reasons", [])
+
+        print(f"[Skeptic] Verdict: {verdict}")
+        if reasons:
+            for r in reasons[:2]:
+                print(f"  - {r[:80]}")
+
+        # Step 7: Chief issues decision cards
+        # Chief only processes leads that got APPROVE or REDUCE
+        if verdict in ["APPROVE", "REDUCE"]:
+            print(f"[Chief] Processing {lead_id} with verdict {verdict}...")
+            chief_prompt = chief.build_user_message()
+            chief_response = call_openrouter(client, chief.model, "", chief_prompt)
+            print(f"[Chief] Got card guidance")
+
+            # Extract card info - simple parsing
+            # Look for #LID - TICKER - VERDICT patterns
+            card_lines = []
+            for line in chief_response.split("\n"):
+                line = line.strip()
+                if "#L" in line and "-" in line:
+                    card_lines.append(line)
+
+            if card_lines:
+                # Create decision card entry
+                card_entry = {
+                    "lead_id": lead_id,
+                    "ticker": ticker,
+                    "verdict": verdict,
+                    "reasons": reasons,
+                    "news_summary": parsed_news.get("reported", [])[:2],
+                    "sentiment_summary": {
+                        "mood": parsed_sentiment.get("mood", "mixed"),
+                        "score": parsed_sentiment.get("score", 0)
+                    },
+                    "charts_data": {
+                        "trend": parsed_charts.get("trend", "neutral"),
+                        "entry": parsed_charts.get("entry"),
+                        "stop": parsed_charts.get("stop"),
+                        "target": parsed_charts.get("target")
+                    }
+                }
+                all_lead_data.append(card_entry)
+
+                # Log to run.log
+                run_log = desk_paths.get("run_log", "")
+                if run_log:
+                    with open(run_log, "a") as f:
+                        f.write(f"\n# Lead {lead_id} - {ticker}\n")
+                        f.write(f"Verdict: {verdict}\n")
+                        if reasons:
+                            f.write(f"Reasons: {'; '.join(reasons)}\n")
+
+        # Small delay to be respectful of API rate limits
+        time.sleep(0.5)
+
+    # Write decision cards to file
+    desk_dir = Path(desk_paths.get("desk_dir", "desk"))
+    cards_path = desk_dir / "decision-cards.md"
+    with open(cards_path, "w") as f:
+        f.write("# Trading Desk Decision Cards\n\n")
+        if all_lead_data:
+            for card in all_lead_data:
+                f.write(f"## {card['lead_id']} - {card['ticker']} - {card['verdict']}\n\n")
+                f.write(f"**Entry:** {card['charts_data'].get('entry', 'N/A')}\n")
+                f.write(f"**Stop:** {card['charts_data'].get('stop', 'N/A')}\n")
+                f.write(f"**Target:** {card['charts_data'].get('target', 'N/A')}\n")
+                f.write(f"**Risk-Reward:** Calculated from stop/target\n\n")
+                f.write(f"**Three Strongest Reasons:**\n")
+                for i, reason in enumerate(card.get("reasons", [])[:3], 1):
+                    f.write(f"{i}. {reason[:100]}\n")
+                f.write(f"\n**Biggest Risk:** {card.get('charts_data', {}).get('trend', 'TBD')}\n")
+                f.write(f"\n**News Links:**\n")
+                for link in card.get("news_summary", []):
+                    f.write(f"- {link[:100]}\n")
+                f.write(f"\n**Sentiment:** {card.get('sentiment_summary', {}).get('mood', 'mixed')} "
+                        f"(score: {card.get('sentiment_summary', {}).get('score', 0)})\n")
+                f.write(f"\n---\n\n")
+        else:
+            f.write("No decisions this cycle. Keep monitoring.\n")
+
+    # Update ledger
+    ledger_path = Path(desk_paths.get("ledger_path", "desk/paper-ledger.csv"))
+    # Append new entries
+    if all_lead_data:
+        with open(ledger_path, "a") as f:
+            for card in all_lead_data:
+                pnl = 0  # Would calculate from exit price
+                f.write(f"{datetime.now().strftime('%Y-%m-%d')},{card['lead_id']},"
+                        f"{card['ticker']},BUY,{card['charts_data'].get('entry', 'N/A')},"
+                        f"{card['charts_data'].get('stop', 'N/A')},{card['charts_data'].get('target', 'N/A')},"
+                        f"{rules_config.get('paper_balance', 10000) * rules_config.get('max_size_pct', 5) / 100:.2f},"
+                        f"open,{','.join,''},0,Paper trade\n")
 
     print("\n" + "=" * 60)
-    print("DEMO COMPLETE")
-    print("\nTo run the full desk with OpenRouter, edit src/runner.py")
-    print("to make actual API calls via client.chat.completions.create().")
+    print("RUN COMPLETE")
+    print(f"\nDecision cards written to: desk/decision-cards.md")
+    print(f"Ledger updated: {ledger_path}")
+    print(f"Run log: {desk_paths.get('run_log', '')}")
     print("=" * 60)
 
 
@@ -214,5 +437,7 @@ if __name__ == "__main__":
         rules = load_rules()
         scout_runs_desk(rules, None)
     except Exception as e:
-        print(f"[ERROR] {e}")
+        import traceback
+        traceback.print_exc()
+        print(f"[FATAL ERROR] {e}")
         sys.exit(1)

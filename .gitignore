@@ -1,1 +1,16 @@
 .DS_Store
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+
+# Desk runtime output (generated per run)
+desk/paper-ledger.csv
+desk/decision-cards.md
+desk/run.log
+
+# Runtime artifacts
+__pycache__/
+*.pyc
+*.pyo

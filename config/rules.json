@@ -1,7 +1,14 @@
 {
   "mode": "PAPER ONLY",
   "paper_balance": 80,
-  "watchlist": ["NVDA", "AAPL", "MSFT", "AMD", "META", "TSLA", "SPY", "BTC", "ETH"],
+  "watchlist": [
+    "BTC", "ETH", "SOL",
+    "US10Y", "US30Y", "DX-Y.NYB",
+    "GC=F", "SI=F", "HG=F",
+    "CL=F",
+    "SPY", "QQQ", "DIA",
+    "AAPL", "MSFT", "GOOGL", "AMZN", "NVDA", "META", "TSLA"
+  ],
   "max_size_pct": 5,
   "max_loss_pct": 1,
   "daily_loss_limit_pct": 2,

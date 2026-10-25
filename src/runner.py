@@ -43,7 +43,7 @@ def setup_desk_directories() -> dict:
         with open(rules_path, "w") as f:
             f.write("# Paper Trading Desk Rules\n\n")
             f.write(f"MODE: {rules.get('mode', 'PAPER ONLY')}\n")
-            balances = rules.get('paper_balance', 10000)
+            balances = rules.get('paper_balance', 80)
             f.write(f"PAPER BALANCE: ${balances}\n")
             watchlist = ", ".join(rules.get('watchlist', []))
             f.write(f"WATCHLIST: {watchlist}\n")
@@ -169,7 +169,6 @@ def scout_runs_desk(rules: dict, agents_config: dict) -> None:
     print(f"[Scout] Response received ({len(scout_response)} chars)")
 
     # Parse scout's leads
-    # Look for leads in the response - format: #L001 - NVDA - $180.23 - +4.2%
     scout_leads = []
     for line in scout_response.split("\n"):
         line = line.strip()
@@ -294,7 +293,6 @@ def scout_runs_desk(rules: dict, agents_config: dict) -> None:
             print(f"[Chief] Got card guidance")
 
             # Extract card info - simple parsing
-            # Look for #LID - TICKER - VERDICT patterns
             card_lines = []
             for line in chief_response.split("\n"):
                 line = line.strip()
@@ -365,18 +363,21 @@ def scout_runs_desk(rules: dict, agents_config: dict) -> None:
     if all_lead_data:
         with open(ledger_path, "a") as f:
             for card in all_lead_data:
-                pnl = 0  # Would calculate from exit price
                 f.write(f"{datetime.now().strftime('%Y-%m-%d')},{card['lead_id']},"
                         f"{card['ticker']},BUY,{card['charts_data'].get('entry', 'N/A')},"
                         f"{card['charts_data'].get('stop', 'N/A')},{card['charts_data'].get('target', 'N/A')},"
-                        f"{rules_config.get('paper_balance', 10000) * rules_config.get('max_size_pct', 5) / 100:.2f},"
+                        f"{rules_config.get('paper_balance', 80) * rules_config.get('max_size_pct', 5) / 100:.2f},"
                         f"open,,0,Paper trade\n")
 
     print("\n" + "=" * 60)
     print("RUN COMPLETE")
+    final_value = 80 + sum(
+        float(line.split(',')[10]) if len(line.split(',')) > 10 and 'Paper trade' not in line else 0
+        for line in open(ledger_path) if line.strip()
+    )
     print(f"\nDecision cards written to: desk/decision-cards.md")
     print(f"Ledger updated: {ledger_path}")
-    print(f"Run log: {desk_paths.get('run_log', '')}")
+    print(f"Final portfolio value: ${final_value:.2f} (starting: ${rules_config.get('paper_balance', 80)})")
     print("=" * 60)
 
 
